@@ -1,0 +1,307 @@
+# ========================================
+# CORE ENTITIES
+# ========================================
+
+type Pool @entity {
+  id: ID!
+  address: Bytes!
+  router: Bytes! # PoolRouter contract address
+  factory: PoolFactory!
+  collateralToken: Bytes!
+  borrowToken: Bytes!
+  ltv: BigInt! # Loan-to-Value ratio (scaled 1e18, 80% = 800000000000000000)
+  
+  # Cumulative totals (all-time)
+  depositsTotal: BigInt!
+  withdrawalsTotal: BigInt!
+  borrowsTotal: BigInt!
+  repaysTotal: BigInt!
+  swapsTotal: BigInt!
+  
+  # Current balances
+  depositsCurrent: BigInt!
+  withdrawalsCurrent: BigInt!
+  borrowsCurrent: BigInt!
+  repaysCurrent: BigInt!
+  swapsCurrent: BigInt!
+  
+  # Supply tracking
+  supplyAssets: BigInt!
+  supplyShares: BigInt!
+  liquidity: BigInt! # Available liquidity (supplyAssets - borrowAssets)
+  
+  # Borrow tracking
+  borrowAssets: BigInt!
+  borrowShares: BigInt!
+  
+  # APY and rates (percentage * 100, so 1% = 100, 0.01% = 1)
+  # Formula: contractValue / 1e16 = stored value
+  # To get percentage: storedValue / 100
+  utilizationRate: BigInt! # e.g., 5000 = 50%
+  supplyAPY: BigInt! # e.g., 250 = 2.5%
+  borrowAPY: BigInt! # e.g., 500 = 5%
+  supplyRate: BigInt!
+  borrowRate: BigInt!
+  
+  lastAccruedAt: BigInt!
+  createdAt: BigInt!
+}
+
+type User @entity {
+  id: ID!
+  address: Bytes!
+  
+  # Cumulative totals (all-time)
+  depositsTotal: BigInt!
+  withdrawalsTotal: BigInt!
+  borrowsTotal: BigInt!
+  repaysTotal: BigInt!
+  swapsTotal: BigInt!
+  
+  # Current balances (global across all pools)
+  depositsCurrent: BigInt!
+  withdrawalsCurrent: BigInt!
+  borrowsCurrent: BigInt!
+  repaysCurrent: BigInt!
+  swapsCurrent: BigInt!
+  
+  # Per-pool balances
+  poolBalances: [UserPoolBalance!]! @derivedFrom(field: "user")
+}
+
+# Track user's current supply/borrow per pool per token
+type UserPoolBalance @entity {
+  id: ID! # {userId}-{poolId}
+  user: User!
+  pool: Pool!
+  
+  # Token info
+  borrowToken: Bytes!
+  borrowTokenSymbol: String!
+  collateralToken: Bytes!
+  collateralTokenSymbol: String!
+  
+  # Current supply liquidity (as lender)
+  currentSupplyAssets: BigInt!
+  currentSupplyShares: BigInt!
+  
+  # Current borrow (as borrower)
+  currentBorrowAssets: BigInt!
+  currentBorrowShares: BigInt!
+  
+  # Current collateral deposited
+  currentCollateral: BigInt!
+  
+  # Health Factor calculation
+  # healthFactor = (collateralValue * liquidationThreshold) / userBorrowAssets
+  # Values scaled by 1e18 (1.0 = 1000000000000000000)
+  healthFactor: BigInt!
+  ltv: BigInt! # Loan-to-Value ratio from pool (scaled 1e18, 80% = 800000000000000000)
+  collateralValue: BigInt! # Collateral value in borrow token units
+  
+  # Debug: Oracle data
+  oracleAddress: Bytes # TokenDataStream oracle address
+  collateralPrice: BigInt # Raw collateral token price from oracle
+  borrowPrice: BigInt # Raw borrow token price from oracle
+  priceRatio: BigInt # collateralPrice / borrowPrice scaled 1e18
+  
+  # Timestamps
+  lastUpdated: BigInt!
+  createdAt: BigInt!
+}
+
+type PoolFactory @entity {
+  id: ID!
+  address: Bytes!
+  pools: [Pool!]! @derivedFrom(field: "factory")
+  poolCount: BigInt!
+  createdAt: BigInt!
+}
+
+# ========================================
+# POOL EVENTS
+# ========================================
+
+type PoolCreatedEvent @entity {
+  id: ID!
+  pool: Bytes!
+  collateralToken: Bytes!
+  borrowToken: Bytes!
+  ltv: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type LiquiditySuppliedEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  amount: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type LiquidityWithdrawnEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  amount: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type DebtBorrowedEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  amount: BigInt!
+  shares: BigInt!
+  chainId: BigInt!
+  addExecutorLzReceiveOption: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type DebtRepaidEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  amount: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type CollateralSuppliedEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  position: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type CollateralWithdrawnEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type PositionLiquidatedEvent @entity {
+  id: ID!
+  borrower: User!
+  pool: Pool!
+  borrowToken: Bytes!
+  collateralToken: Bytes!
+  borrowAssets: BigInt!
+  borrowerCollateral: BigInt!
+  liquidationAllocation: BigInt!
+  collateralToLiquidator: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type TokenSwappedEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  tokenIn: Bytes!
+  tokenOut: Bytes!
+  amountIn: BigInt!
+  amountOut: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type PositionCreatedEvent @entity {
+  id: ID!
+  user: User!
+  pool: Pool!
+  position: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+# ========================================
+# POSITION ENTITIES
+# ========================================
+
+type Position @entity {
+  id: ID! # user-pool
+  user: User!
+  pool: Pool!
+  address: Bytes!
+  isActive: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type PositionCollateralWithdrawnEvent @entity {
+  id: ID!
+  user: User!
+  position: Bytes!
+  pool: Pool!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+# ========================================
+# ANALYTICS
+# ========================================
+
+type PoolMetrics @entity {
+  id: ID! # pool-timestamp
+  pool: Pool!
+  supplyAPY: BigInt!
+  borrowAPY: BigInt!
+  utilizationRate: BigInt!
+  supplyAssets: BigInt!
+  borrowAssets: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+# ========================================
+# ARCHIVED/DISABLED ENTITIES
+# ========================================
+
+# Router events - Currently disabled
+# type PoolRouter @entity {
+#   id: ID!
+#   poolAddress: Bytes!
+#   routerAddress: Bytes!
+#   isActive: Boolean!
+#   discoveredAt: BigInt!
+#   blockNumber: BigInt!
+# }
+
+# Porto analytics - Currently disabled
+# type TokenMetrics @entity {
+#   id: ID!
+#   tokenAddress: Bytes!
+#   tokenSymbol: String
+#   tvl: BigInt!
+#   totalCollateral: BigInt!
+#   totalLiquidity: BigInt!
+#   totalBorrowed: BigInt!
+#   poolCount: BigInt!
+#   lastUpdated: BigInt!
+# }

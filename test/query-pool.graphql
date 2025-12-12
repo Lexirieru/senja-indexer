@@ -1,0 +1,215 @@
+# ========================================
+# POOL QUERIES
+# ========================================
+
+# Query all pools with APY data
+query GetAllPools {
+  pools {
+    id
+    address
+    router
+    collateralToken
+    borrowToken
+    
+    # Supply data
+    supplyAssets
+    supplyShares
+    liquidity
+    
+    # Borrow data
+    borrowAssets
+    borrowShares
+    
+    # APY/Rates (in basis points, 100 = 1%)
+    utilizationRate
+    supplyAPY
+    borrowAPY
+    supplyRate
+    borrowRate
+    
+    # Totals
+    depositsTotal
+    withdrawalsTotal
+    borrowsTotal
+    repaysTotal
+    
+    # Current balances
+    depositsCurrent
+    borrowsCurrent
+    
+    createdAt
+    lastAccruedAt
+  }
+}
+
+# Query single pool by ID
+query GetPoolById($poolId: ID!) {
+  pool(id: $poolId) {
+    id
+    address
+    router
+    supplyAssets
+    borrowAssets
+    utilizationRate
+    supplyAPY
+    borrowAPY
+  }
+}
+
+# ========================================
+# USER QUERIES
+# ========================================
+
+query GetAllUsers {
+  users {
+    id
+    address
+    depositsTotal
+    withdrawalsTotal
+    borrowsTotal
+    repaysTotal
+    depositsCurrent
+    borrowsCurrent
+  }
+}
+
+query GetUserById($userId: ID!) {
+  user(id: $userId) {
+    id
+    address
+    depositsTotal
+    withdrawalsTotal
+    borrowsTotal
+    repaysTotal
+  }
+}
+
+# ========================================
+# EVENT QUERIES
+# ========================================
+
+# Recent supply events
+query GetRecentSupplyEvents {
+  liquiditySuppliedEvents(first: 10, orderBy: timestamp, orderDirection: desc) {
+    id
+    user {
+      id
+    }
+    pool {
+      id
+    }
+    amount
+    shares
+    timestamp
+    transactionHash
+  }
+}
+
+# Recent borrow events
+query GetRecentBorrowEvents {
+  debtBorrowedEvents(first: 10, orderBy: timestamp, orderDirection: desc) {
+    id
+    user {
+      id
+    }
+    pool {
+      id
+    }
+    amount
+    shares
+    timestamp
+    transactionHash
+  }
+}
+
+# Recent withdraw events
+query GetRecentWithdrawEvents {
+  liquidityWithdrawnEvents(first: 10, orderBy: timestamp, orderDirection: desc) {
+    id
+    user {
+      id
+    }
+    pool {
+      id
+    }
+    amount
+    shares
+    timestamp
+    transactionHash
+  }
+}
+
+# Recent repay events
+query GetRecentRepayEvents {
+  debtRepaidEvents(first: 10, orderBy: timestamp, orderDirection: desc) {
+    id
+    user {
+      id
+    }
+    pool {
+      id
+    }
+    amount
+    shares
+    timestamp
+    transactionHash
+  }
+}
+
+# ========================================
+# POOL METRICS (APY SNAPSHOTS)
+# ========================================
+
+query GetPoolMetrics($poolId: String!) {
+  poolMetrics(
+    where: { pool: $poolId }
+    first: 20
+    orderBy: timestamp
+    orderDirection: desc
+  ) {
+    id
+    pool {
+      id
+    }
+    supplyAPY
+    borrowAPY
+    utilizationRate
+    supplyAssets
+    borrowAssets
+    timestamp
+    blockNumber
+  }
+}
+
+# ========================================
+# POSITIONS
+# ========================================
+
+query GetAllPositions {
+  positions {
+    id
+    user {
+      id
+    }
+    pool {
+      id
+    }
+    address
+    isActive
+    createdAt
+    updatedAt
+  }
+}
+
+query GetUserPositions($userId: String!) {
+  positions(where: { user: $userId }) {
+    id
+    pool {
+      id
+      address
+    }
+    address
+    isActive
+    createdAt
+  }
+}

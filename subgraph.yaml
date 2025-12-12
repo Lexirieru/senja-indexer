@@ -1,0 +1,124 @@
+specVersion: 0.0.4
+description: Lending Pool Subgraph
+repository: 
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum/contract
+    name: LendingPoolFactory
+    network: avalanche
+    source:
+      address: "0x3705620C09D43935C00852d3610e31C942595cE8"
+      abi: LendingPoolFactory
+      startBlock: 73579728
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - LendingPool
+        - LendingPoolFactory
+        - LendingPoolCreated
+        - User
+      abis:
+        - name: LendingPoolFactory
+          file: ./abis/implementationAbi.json
+        - name: LendingPool
+          file: ./abis/lendingPoolAbi.json
+      eventHandlers:
+        - event: LendingPoolCreated(indexed address,indexed address,indexed address,uint256)
+          handler: handlePoolCreated
+      file: ./src/lending-pool-handlers.ts
+
+templates:
+  # Dynamic LendingPool template
+  - kind: ethereum/contract
+    name: LendingPool
+    network: avalanche
+    source:
+      abi: LendingPool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - LendingPool
+        - User
+        - SupplyLiquidity
+        - WithdrawLiquidity
+        - BorrowDebt
+        - RepayByPosition
+        - SupplyCollateral
+        - WithdrawCollateral
+        - Liquidation
+        - SwapTokenByPosition
+        - CreatePosition
+        - UserPosition
+        - PoolAPYSnapshot
+        - InterestAccrual
+        - UserCollateral
+        - UserBorrow
+      abis:
+        - name: LendingPool
+          file: ./abis/lendingPoolAbi.json
+        - name: PoolRouter
+          file: ./abis/poolRouterAbi.json
+        - name: TokenDataStream
+          file: ./abis/tokenDataStreamAbi.json
+        - name: LendingPoolFactory
+          file: ./abis/implementationAbi.json
+      eventHandlers:
+        # Core liquidity events
+        - event: SupplyLiquidity(address,uint256,uint256)
+          handler: handleSupplyLiquidity
+        - event: WithdrawLiquidity(address,uint256,uint256)
+          handler: handleWithdrawLiquidity
+        # Borrow/Repay events
+        - event: BorrowDebt(address,uint256,uint256,uint256,uint256)
+          handler: handleBorrowDebt
+        - event: RepayByPosition(address,uint256,uint256)
+          handler: handleRepayByPosition
+        # Collateral events
+        - event: SupplyCollateral(address,address,uint256)
+          handler: handleSupplyCollateral
+        - event: WithdrawCollateral(address,uint256)
+          handler: handleWithdrawCollateral
+        # Liquidation event
+        - event: Liquidation(address,address,address,uint256,uint256,uint256,uint256)
+          handler: handleLiquidation
+        # Swap event
+        - event: SwapTokenByPosition(address,address,address,uint256,uint256)
+          handler: handleSwapTokenByPosition
+        # Position events
+        - event: CreatePosition(address,address)
+          handler: handleCreatePosition
+        # Interest rate events
+        - event: InterestRateModelSet(indexed address,indexed address)
+          handler: handleInterestRateModelSet
+      file: ./src/lending-pool-handlers.ts
+
+  # Dynamic Position template - tracks position-specific events
+  - kind: ethereum/contract
+    name: Position
+    network: avalanche
+    source:
+      abi: Position
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - UserPosition
+        - PositionWithdrawCollateral
+        - User
+        - LendingPool
+      abis:
+        - name: Position
+          file: ./abis/lendingPoolAbi.json
+        - name: LendingPool
+          file: ./abis/lendingPoolAbi.json
+      eventHandlers:
+        # Position-specific events
+        - event: WithdrawCollateral(address,uint256)
+          handler: handlePositionWithdrawCollateral
+      file: ./src/position-mapping.ts

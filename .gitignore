@@ -62,12 +62,6 @@ typings/
 
 .idea/
 
-src
-test
-abis
-schema.graphql
-subgraph.yaml
-
 data
 build
 generated
